@@ -22,7 +22,7 @@ except ImportError:
     "astrbot_plugin_group_information",
     "Futureppo",
     "导出群成员信息为Excel表格",
-    "1.0.4",
+    "1.0.3",
     "https://github.com/Futureppo/astrbot_plugin_group_information"
 )
 class GroupInformationPlugin(Star):
@@ -177,6 +177,9 @@ class GroupInformationPlugin(Star):
             )
             logger.info(f"方法2：upload_group_file 返回值 (export_group_data)：{upload_result}")
             logger.info(f"方法2：文件上传操作完成 (export_group_data)：{file_name}")
+            # 发送成功导出的提示信息
+            yield event.plain_result(f"已成功导出群 {group_id} 的 {len(processed_members)} 名成员信息")
+            logger.info(f"方法2：已发送成功导出提示信息：群 {group_id} 的 {len(processed_members)} 名成员")
         except Exception as upload_e:
             logger.error(f"方法2：文件上传失败 (export_group_data)：{upload_e}")
 
@@ -326,6 +329,9 @@ class GroupInformationPlugin(Star):
                         )
                         logger.info(f"方法2：upload_group_file 返回值 (export_all_groups_data)：{upload_result}")
                         logger.info(f"方法2：文件上传操作完成 (export_all_groups_data)：{file_name}")
+                        # 发送成功导出的提示信息
+                        yield event.plain_result(f"已成功导出 {processed_groups} 个群，共 {total_members} 名成员的信息")
+                        logger.info(f"方法2：已发送成功导出提示信息：{processed_groups}个群，{total_members}名成员")
                     except ValueError:
                         logger.error(f"方法2：无效的群号格式 (export_all_groups_data)：{group_id_str}")
             except Exception as upload_e:
