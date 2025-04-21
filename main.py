@@ -22,7 +22,7 @@ except ImportError:
     "astrbot_plugin_group_information",
     "Futureppo",
     "导出群成员信息为Excel表格",
-    "1.0.5",
+    "1.0.6",
     "https://github.com/Futureppo/astrbot_plugin_group_information"
 )
 class GroupInformationPlugin(Star):
@@ -159,29 +159,31 @@ class GroupInformationPlugin(Star):
             )
             yield event.chain_result([file_component])
             logger.info(f"方法1：文件已发送至群 {group_id}")
-            return  # 如果成功，直接返回
         except Exception as e:
             logger.error(f"方法1：发送文件失败 (export_group_data)：{e}")
+            # 方法2：备用方案，只有在方法1失败时执行，仅上传文件不做任何提示
+            try:
+                logger.info("方法2：尝试使用适配器接口 upload_group_file 上传文件 (export_group_data)...")
+                # 将字节流编码为 Base64 字符串
+                file_content_base64 = base64.b64encode(file_content).decode('utf-8')
+                # 构造符合 NapCat/go-cqhttp 格式的文件参数
+                upload_result = await client.api.call_action(
+                    "upload_group_file",
+                    group_id=group_id,
+                    file=f"base64://{file_content_base64}",  # 使用 base64:// 前缀，符合 go-cqhttp 格式
+                    name=file_name
+                )
+                logger.info(f"方法2：upload_group_file 返回值 (export_group_data)：{upload_result}")
+                logger.info(f"方法2：文件上传操作完成 (export_group_data)：{file_name}")
+                # 发送成功导出的提示信息
+                yield event.plain_result(f"已成功导出群 {group_id} 的 {len(processed_members)} 名成员信息")
+                logger.info(f"方法2：已发送成功导出提示信息：群 {group_id} 的 {len(processed_members)} 名成员")
+            except Exception as upload_e:
+                logger.error(f"方法2：文件上传失败 (export_group_data)：{upload_e}")
 
-        # 发送文件 - 方法2：备用方案，只有在方法1失败时执行，仅上传文件不做任何提示
-        try:
-            logger.info("方法2：尝试使用适配器接口 upload_group_file 上传文件 (export_group_data)...")
-            # 将字节流编码为 Base64 字符串
-            file_content_base64 = base64.b64encode(file_content).decode('utf-8')
-            # 构造符合 NapCat/go-cqhttp 格式的文件参数
-            upload_result = await client.api.call_action(
-                "upload_group_file",
-                group_id=group_id,
-                file=f"base64://{file_content_base64}",  # 使用 base64:// 前缀，符合 go-cqhttp 格式
-                name=file_name
-            )
-            logger.info(f"方法2：upload_group_file 返回值 (export_group_data)：{upload_result}")
-            logger.info(f"方法2：文件上传操作完成 (export_group_data)：{file_name}")
-            # 发送成功导出的提示信息
-            yield event.plain_result(f"已成功导出群 {group_id} 的 {len(processed_members)} 名成员信息")
-            logger.info(f"方法2：已发送成功导出提示信息：群 {group_id} 的 {len(processed_members)} 名成员")
-        except Exception as upload_e:
-            logger.error(f"方法2：文件上传失败 (export_group_data)：{upload_e}")
+        # 终止事件处理流程，避免传递给后续处理器（如 LLM）
+        event.stop_event()
+        return
 
     @filter.permission_type(PermissionType.ADMIN)
     @filter.command("导出所有群数据")
@@ -305,41 +307,43 @@ class GroupInformationPlugin(Star):
                 yield event.chain_result([file_component])
                 logger.info(f"方法1：已导出 {processed_groups} 个群，共 {total_members} 名成员的信息")
                 yield event.plain_result(f"已成功导出 {processed_groups} 个群，共 {total_members} 名成员的信息")
-                return  # 如果成功，直接返回
             except Exception as e:
                 logger.error(f"方法1：发送文件失败 (export_all_groups_data)：{e}")
-
-            # 发送文件 - 方法2：备用方案，只有在方法1失败时执行，仅上传文件不做任何提示
-            try:
-                group_id_str = event.get_group_id()
-                if not group_id_str:
-                    logger.error("方法2：无法获取群ID，无法上传文件 (export_all_groups_data)")
-                else:
-                    try:
-                        group_id = int(group_id_str)
-                        logger.info("方法2：尝试使用适配器接口 upload_group_file 上传文件 (export_all_groups_data)...")
-                        # 将字节流编码为 Base64 字符串
-                        file_content_base64 = base64.b64encode(file_content).decode('utf-8')
-                        # 构造符合 NapCat/go-cqhttp 格式的文件参数
-                        upload_result = await client.api.call_action(
-                            "upload_group_file",
-                            group_id=group_id,
-                            file=f"base64://{file_content_base64}",  # 使用 base64:// 前缀，符合 go-cqhttp 格式
-                            name=file_name
-                        )
-                        logger.info(f"方法2：upload_group_file 返回值 (export_all_groups_data)：{upload_result}")
-                        logger.info(f"方法2：文件上传操作完成 (export_all_groups_data)：{file_name}")
-                        # 发送成功导出的提示信息
-                        yield event.plain_result(f"已成功导出 {processed_groups} 个群，共 {total_members} 名成员的信息")
-                        logger.info(f"方法2：已发送成功导出提示信息：{processed_groups}个群，{total_members}名成员")
-                    except ValueError:
-                        logger.error(f"方法2：无效的群号格式 (export_all_groups_data)：{group_id_str}")
-            except Exception as upload_e:
-                logger.error(f"方法2：文件上传失败 (export_all_groups_data)：{upload_e}")
+                # 方法2：备用方案，只有在方法1失败时执行，仅上传文件不做任何提示
+                try:
+                    group_id_str = event.get_group_id()
+                    if not group_id_str:
+                        logger.error("方法2：无法获取群ID，无法上传文件 (export_all_groups_data)")
+                    else:
+                        try:
+                            group_id = int(group_id_str)
+                            logger.info("方法2：尝试使用适配器接口 upload_group_file 上传文件 (export_all_groups_data)...")
+                            # 将字节流编码为 Base64 字符串
+                            file_content_base64 = base64.b64encode(file_content).decode('utf-8')
+                            # 构造符合 NapCat/go-cqhttp 格式的文件参数
+                            upload_result = await client.api.call_action(
+                                "upload_group_file",
+                                group_id=group_id,
+                                file=f"base64://{file_content_base64}",  # 使用 base64:// 前缀，符合 go-cqhttp 格式
+                                name=file_name
+                            )
+                            logger.info(f"方法2：upload_group_file 返回值 (export_all_groups_data)：{upload_result}")
+                            logger.info(f"方法2：文件上传操作完成 (export_all_groups_data)：{file_name}")
+                            # 发送成功导出的提示信息
+                            yield event.plain_result(f"已成功导出 {processed_groups} 个群，共 {total_members} 名成员的信息")
+                            logger.info(f"方法2：已发送成功导出提示信息：{processed_groups}个群，{total_members}名成员")
+                        except ValueError:
+                            logger.error(f"方法2：无效的群号格式 (export_all_groups_data)：{group_id_str}")
+                except Exception as upload_e:
+                    logger.error(f"方法2：文件上传失败 (export_all_groups_data)：{upload_e}")
                 
         except Exception as e:
             logger.error(f"导出所有群数据失败：{e}\n{traceback.format_exc()}")
             yield event.plain_result("导出所有群数据时出错，请检查日志")
+
+        # 终止事件处理流程，避免传递给后续处理器（如 LLM）
+        event.stop_event()
+        return
             
     @filter.permission_type(PermissionType.ADMIN)
     @filter.command("查看群列表")
@@ -378,6 +382,10 @@ class GroupInformationPlugin(Star):
         except Exception as e:
             logger.error(f"获取群列表失败：{e}")
             yield event.plain_result("获取群列表时出错，请检查日志")
+
+        # 终止事件处理流程，避免传递给后续处理器（如 LLM）
+        event.stop_event()
+        return
 
     async def terminate(self):
         """插件终止时清理临时文件"""
