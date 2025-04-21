@@ -20,7 +20,7 @@ except ImportError:
     "Futureppo",
     "导出群成员信息为Excel表格",
     "1.0.2",
-    "https://github.com/your_repo/astrbot_plugin_group_information"
+    "https://github.com/Futureppo/astrbot_plugin_group_information"
 )
 class GroupInformationPlugin(Star):
     def __init__(self, context: Context):
@@ -29,10 +29,10 @@ class GroupInformationPlugin(Star):
         self.temp_dir = Path(__file__).parent / "temp"
         try:
             self.temp_dir.mkdir(parents=True, exist_ok=True)
-            logger.debug(f"临时目录设置为：{self.temp_dir}")
+            logger.info(f"临时目录设置为：{self.temp_dir}（不推荐）")
         except Exception as e:
             logger.error(f"创建临时目录失败：{e}")
-        logger.debug("群信息插件加载完成")
+        logger.info("群信息插件加载完成")
 
     def _format_timestamp(self, timestamp):
         """格式化时间戳为可读时间"""
@@ -42,6 +42,29 @@ class GroupInformationPlugin(Star):
             except Exception as e:
                 logger.warning(f"时间戳格式化失败：{e}")
         return None
+        
+    def _clean_excel_invalid_chars(self, text):
+        """清理Excel不支持的特殊字符"""
+        if not text or not isinstance(text, str):
+            return text
+            
+        # 替换一些已知的可能导致Excel问题的特殊字符
+        # 如果遇到更多特殊字符问题，可以在这里添加
+        replacements = {
+            '［': '[',
+            '］': ']',
+            '「': '"',
+            '」': '"',
+            '：': ':',
+            '，': ',',
+            ''': "'",
+            ''': "'"
+        }
+        
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+            
+        return text
 
     @filter.command("导出群数据")
     async def export_group_data(self, event: AstrMessageEvent):
@@ -103,6 +126,11 @@ class GroupInformationPlugin(Star):
                 continue
 
             member_copy = member.copy()
+            # 清理可能包含特殊字符的字段
+            for field in ["nickname", "card", "title"]:
+                if field in member_copy and member_copy[field]:
+                    member_copy[field] = self._clean_excel_invalid_chars(member_copy[field])
+            
             member_copy["join_time"] = self._format_timestamp(member.get("join_time"))
             member_copy["last_sent_time"] = self._format_timestamp(member.get("last_sent_time"))
             member_copy["title_expire_time"] = self._format_timestamp(member.get("title_expire_time", 0))
@@ -119,8 +147,9 @@ class GroupInformationPlugin(Star):
             ts = datetime.now().strftime('%Y%m%d_%H%M%S')
             file_name = f"group_{group_id}_members_{ts}.xlsx"
             output_path = self.temp_dir / file_name
+            # 使用群号作为文件名，避免特殊字符问题
             df.to_excel(output_path, index=False, engine='openpyxl')
-            logger.debug(f"Excel文件已生成：{output_path}")
+            logger.info(f"Excel文件已生成：{output_path}")
         except Exception as e:
             logger.error(f"生成Excel失败：{e}")
             yield event.plain_result("生成Excel时出错，请检查日志")
@@ -133,19 +162,19 @@ class GroupInformationPlugin(Star):
                 file=str(output_path)
             )
             yield event.chain_result([file_component])
-            logger.debug(f"文件已发送至群 {group_id}")
+            logger.info(f"文件已发送至群 {group_id}")
         except Exception as e:
             logger.error(f"发送文件失败：{e}")
             yield event.plain_result("发送文件时出错，请检查日志")
 
     async def terminate(self):
         """插件终止时清理临时文件"""
-        logger.debug("插件终止，开始清理临时文件...")
+        logger.info("插件终止，开始清理临时文件...")
         try:
             if hasattr(self, 'temp_dir') and self.temp_dir.exists():
                 for file in self.temp_dir.iterdir():
                     if file.is_file() and file.name.startswith("group_") and file.suffix == ".xlsx":
                         file.unlink()
-                        logger.debug(f"已删除：{file}")
+                        logger.info(f"已删除：{file}")
         except Exception as e:
             logger.error(f"清理临时文件失败：{e}")
