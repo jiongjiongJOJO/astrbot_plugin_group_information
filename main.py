@@ -22,7 +22,7 @@ except ImportError:
     "astrbot_plugin_group_information",
     "Futureppo",
     "导出群成员信息为Excel表格",
-    "1.0.3",
+    "1.0.5",
     "https://github.com/Futureppo/astrbot_plugin_group_information"
 )
 class GroupInformationPlugin(Star):
