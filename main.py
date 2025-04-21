@@ -19,7 +19,7 @@ except ImportError:
     "astrbot_plugin_group_information",
     "Futureppo",
     "导出群成员信息为Excel表格",
-    "1.0.2",
+    "1.0.3",
     "https://github.com/Futureppo/astrbot_plugin_group_information"
 )
 class GroupInformationPlugin(Star):
@@ -48,23 +48,14 @@ class GroupInformationPlugin(Star):
         if not text or not isinstance(text, str):
             return text
             
-        # 替换一些已知的可能导致Excel问题的特殊字符
-        # 如果遇到更多特殊字符问题，可以在这里添加
-        replacements = {
-            '［': '[',
-            '］': ']',
-            '「': '"',
-            '」': '"',
-            '：': ':',
-            '，': ',',
-            ''': "'",
-            ''': "'"
-        }
-        
-        for old, new in replacements.items():
-            text = text.replace(old, new)
-            
-        return text
+        # 替换或移除Excel不支持的字符
+        cleaned_text = ""
+        for char in text:
+            # 检查字符是否为控制字符（ASCII码小于32）或某些特殊字符
+            if ord(char) < 32 or char in ['\x00', '\x01', '\x02', '\x03']:
+                continue  # 跳过这些字符
+            cleaned_text += char
+        return cleaned_text
 
     @filter.command("导出群数据")
     async def export_group_data(self, event: AstrMessageEvent):
@@ -148,10 +139,10 @@ class GroupInformationPlugin(Star):
             file_name = f"group_{group_id}_members_{ts}.xlsx"
             output_path = self.temp_dir / file_name
             # 使用群号作为文件名，避免特殊字符问题
-            df.to_excel(output_path, index=False, engine='openpyxl')
+            df.to_excel(output_path, index=False, engine='openpyxl', sheet_name=f"Group_{group_id}")
             logger.info(f"Excel文件已生成：{output_path}")
         except Exception as e:
-            logger.error(f"生成Excel失败：{e}")
+            logger.error(f"生成Excel失败：{e}\n{traceback.format_exc()}")
             yield event.plain_result("生成Excel时出错，请检查日志")
             return
 
