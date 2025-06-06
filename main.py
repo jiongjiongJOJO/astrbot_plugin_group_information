@@ -63,7 +63,6 @@ class GroupInformationPlugin(Star):
             logger.error(f"导出群数据时出错: {e}")
             yield event.plain_result(f"导出群数据时出错")
 
-    @filter.permission_type(PermissionType.ADMIN)
     @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE)
     @filter.command("导出群数据")
     async def export_group_data_by_group_id(self, event: AiocqhttpMessageEvent, group_id: str):
