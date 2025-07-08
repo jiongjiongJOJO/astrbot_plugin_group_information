@@ -47,7 +47,7 @@ class GroupInformationPlugin(Star):
             client = event.bot
             group_id = event.get_group_id()
             # 获取群成员列表
-            members: list[dict] = await client.get_group_member_list(group_id=int(group_id))  # type: ignore
+            members: list[dict] = await client.get_group_member_list(group_id=int(group_id), no_cache=True)  # type: ignore
             # 处理成员数据
             processed_members = self._process_members(members)
             # 生成Excel文件
@@ -71,7 +71,7 @@ class GroupInformationPlugin(Star):
         try:
             client = event.bot
             # 获取群成员列表
-            members: list[dict] = await client.get_group_member_list(group_id=int(group_id))  # type: ignore
+            members: list[dict] = await client.get_group_member_list(group_id=int(group_id), no_cache=True)  # type: ignore
             # 处理成员数据
             processed_members = self._process_members(members)
             # 生成Excel文件
@@ -93,7 +93,7 @@ class GroupInformationPlugin(Star):
         """导出所有群的成员信息到多个sheet的Excel文件中"""
 
         client = event.bot
-        group_list = await client.get_group_list()
+        group_list = await client.get_group_list(no_cache=True)
         yield event.plain_result(f"正在导出{len(group_list)}个群的数据...")
         try:
             # 创建Excel工作簿到内存中
@@ -106,7 +106,7 @@ class GroupInformationPlugin(Star):
                     group_name = group["group_name"]
 
                     try:
-                        members: list[dict] = await client.get_group_member_list(group_id=group_id)  # type: ignore
+                        members: list[dict] = await client.get_group_member_list(group_id=group_id, no_cache=True)  # type: ignore
                         processed_members = self._process_members(members)
                         for member in processed_members:
                             member["group_name"] = self._clean_excel_invalid_chars(
